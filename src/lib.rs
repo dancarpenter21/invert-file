@@ -1,5 +1,7 @@
 //! File inversion and magic-byte inspection primitives for the `invert` CLI.
 
+pub mod cli;
+
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};

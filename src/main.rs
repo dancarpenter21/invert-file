@@ -4,72 +4,13 @@ use std::io::{self, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, Parser};
 use clap_complete::{Shell, generate};
 use invert::{
     InversionState, expand_inputs, inversion_state, invert_file, invert_reader_to_file,
     invert_reader_to_writer, mime_from_file,
 };
-
-#[derive(Debug, Parser)]
-#[command(
-    name = "invert",
-    version,
-    about = "Invert file bytes and inspect inverted file signatures."
-)]
-#[command(subcommand_precedence_over_arg = true)]
-struct Cli {
-    #[command(subcommand)]
-    command: Option<Command>,
-
-    #[command(flatten)]
-    invert: InvertArgs,
-}
-
-#[derive(Debug, clap::Args)]
-struct InvertArgs {
-    /// Files to invert. If omitted, read from standard input. Use - for standard input.
-    #[arg(value_name = "INPUT", num_args = 0..)]
-    inputs: Vec<PathBuf>,
-
-    /// Write output to a file. Use - for standard output; with no value, use the conventional .inv name.
-    #[arg(
-        short,
-        long,
-        value_name = "OUTPUT",
-        num_args = 0..=1,
-        default_missing_value = "__invert_default_output__"
-    )]
-    output: Option<PathBuf>,
-
-    /// Print each input and output path.
-    #[arg(short, long)]
-    verbose: bool,
-}
-
-#[derive(Debug, Subcommand)]
-enum Command {
-    /// Print the magic-byte MIME type of a regular or inverted file.
-    Mime { file: PathBuf },
-    /// Report whether magic bytes identify a file as inverted.
-    Is { file: PathBuf },
-    /// Install shell completion support.
-    Completions {
-        #[command(subcommand)]
-        command: CompletionCommand,
-    },
-}
-
-#[derive(Debug, Subcommand)]
-enum CompletionCommand {
-    /// Generate and install a completion file for a shell.
-    Install { shell: CompletionShell },
-}
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-enum CompletionShell {
-    Bash,
-}
+use invert::cli::{Cli, Command, CompletionCommand, CompletionShell, InvertArgs};
 
 fn main() -> ExitCode {
     let cli = Cli::parse();

@@ -1,0 +1,40 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH invert 1  "invert 0.1.0" 
+.SH NAME
+invert \- Invert file bytes and inspect inverted file signatures.
+.SH SYNOPSIS
+\fBinvert\fR [\fB\-o\fR|\fB\-\-output\fR] [\fB\-v\fR|\fB\-\-verbose\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fIINPUT\fR] [\fIsubcommands\fR]
+.SH DESCRIPTION
+Invert file bytes and inspect inverted file signatures.
+.SH OPTIONS
+.TP
+\fB\-o\fR, \fB\-\-output\fR [\fI<OUTPUT>\fR]
+Write output to a file. Use \- for standard output; with no value, use the conventional .inv name
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Print each input and output path
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version
+.TP
+[\fIINPUT\fR]
+Files to invert. If omitted, read from standard input. Use \- for standard input
+.SH SUBCOMMANDS
+.TP
+invert\-mime(1)
+Print the magic\-byte MIME type of a regular or inverted file
+.TP
+invert\-is(1)
+Report whether magic bytes identify a file as inverted
+.TP
+invert\-completions(1)
+Install shell completion support
+.TP
+invert\-help(1)
+Print this message or the help of the given subcommand(s)
+.SH VERSION
+v0.1.0
