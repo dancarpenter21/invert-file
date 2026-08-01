@@ -111,6 +111,23 @@ pub fn invert_file(input: &Path, destination: Option<&Path>) -> Result<PathBuf, 
     Ok(destination)
 }
 
+/// Stream bytewise-inverted data from `source` into `destination`.
+///
+/// This is intended for inputs, such as standard input, that have no source
+/// path from which a conventional output name can be derived.
+pub fn invert_reader_to_file<R: Read>(
+    source: &mut R,
+    destination: &Path,
+) -> Result<PathBuf, InvertError> {
+    let destination = expand_tilde(destination);
+    let parent = destination.parent().unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(parent)?;
+
+    let mut target = File::create(&destination)?;
+    invert_reader_to_writer(source, &mut target)?;
+    Ok(destination)
+}
+
 /// Stream bytewise-inverted data from `source` into `target`.
 pub fn invert_reader_to_writer<R: Read, W: Write>(
     source: &mut R,
@@ -247,5 +264,17 @@ mod tests {
         );
         assert_eq!(inversion_state(&output).unwrap(), InversionState::Inverted);
         assert_eq!(fs::read(&output).unwrap()[0], 0x76);
+    }
+
+    #[test]
+    fn streams_reader_data_to_a_named_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("nested/output.bin");
+        let input = [0x00, 0x55, 0xff];
+
+        let path = invert_reader_to_file(&mut &input[..], &output).unwrap();
+
+        assert_eq!(path, output);
+        assert_eq!(fs::read(output).unwrap(), [0xff, 0xaa, 0x00]);
     }
 }
