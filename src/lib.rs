@@ -75,16 +75,10 @@ pub fn expand_inputs(inputs: &[PathBuf]) -> Result<Vec<PathBuf>, InvertError> {
     Ok(expanded)
 }
 
-/// Return the conventional `<name>.inv.<extension>` output path.
+/// Return the conventional `<filename>.inv` output path.
 pub fn output_path(input: &Path) -> PathBuf {
     let name = input.file_name().unwrap_or_default().to_string_lossy();
-    let output_name = match input.extension() {
-        Some(extension) => {
-            let stem = input.file_stem().unwrap_or_default().to_string_lossy();
-            format!("{stem}.inv.{}", extension.to_string_lossy())
-        }
-        None => format!("{name}.inv"),
-    };
+    let output_name = format!("{name}.inv");
     input.with_file_name(output_name)
 }
 
@@ -98,7 +92,7 @@ pub fn invert_file(input: &Path, destination: Option<&Path>) -> Result<PathBuf, 
     let destination = destination
         .map(expand_tilde)
         .unwrap_or_else(|| output_path(&input));
-    let parent = destination.parent().unwrap_or_else(|| Path::new("."));
+    let parent = parent_or_current(&destination);
     fs::create_dir_all(parent)?;
 
     let input_canonical = input.canonicalize()?;
@@ -122,7 +116,7 @@ pub fn invert_reader_to_file<R: Read>(
     destination: &Path,
 ) -> Result<PathBuf, InvertError> {
     let destination = expand_tilde(destination);
-    let parent = destination.parent().unwrap_or_else(|| Path::new("."));
+    let parent = parent_or_current(&destination);
     fs::create_dir_all(parent)?;
 
     let mut target = File::create(&destination)?;
@@ -213,9 +207,15 @@ fn canonical_destination(path: &Path) -> Result<PathBuf, InvertError> {
     if let Ok(path) = path.canonicalize() {
         return Ok(path);
     }
-    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let parent = parent_or_current(path);
     let parent = parent.canonicalize()?;
     Ok(parent.join(path.file_name().unwrap_or_default()))
+}
+
+fn parent_or_current(path: &Path) -> &Path {
+    path.parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."))
 }
 
 #[cfg(test)]
@@ -223,10 +223,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn conventional_output_names_are_preserved() {
+    fn conventional_output_names_use_inv_suffix() {
         assert_eq!(
             output_path(Path::new("sample.bin")),
-            PathBuf::from("sample.inv.bin")
+            PathBuf::from("sample.bin.inv")
         );
         assert_eq!(
             output_path(Path::new("LICENSE")),

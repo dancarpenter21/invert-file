@@ -1,13 +1,22 @@
 use std::fs;
 use std::io::Write;
+use std::path::Path;
 use std::process::{Command, Output, Stdio};
 use std::thread;
 
 use invert::CHUNK_SIZE;
 
 fn run(args: &[&str], input: &[u8]) -> Output {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_invert"))
-        .args(args)
+    run_in(args, input, None)
+}
+
+fn run_in(args: &[&str], input: &[u8], current_dir: Option<&Path>) -> Output {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_invert"));
+    command.args(args);
+    if let Some(current_dir) = current_dir {
+        command.current_dir(current_dir);
+    }
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -77,6 +86,63 @@ fn writes_stdin_to_a_named_output_file() {
     assert_eq!(
         String::from_utf8(output.stderr).unwrap(),
         format!("inverted <stdin> -> {}\n", destination.display())
+    );
+}
+
+#[test]
+fn writes_relative_input_to_relative_output_in_current_directory() {
+    let directory = tempfile::tempdir().unwrap();
+    fs::write(directory.path().join("input.bin"), [0x00, 0x55, 0xff]).unwrap();
+
+    let output = run_in(
+        &["input.bin", "-o", "output.bin"],
+        &[],
+        Some(directory.path()),
+    );
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        fs::read(directory.path().join("output.bin")).unwrap(),
+        [0xff, 0xaa, 0x00]
+    );
+}
+
+#[test]
+fn writes_conventional_output_for_relative_input_in_current_directory() {
+    let directory = tempfile::tempdir().unwrap();
+    fs::write(directory.path().join("input.bin"), [0x01, 0x02]).unwrap();
+
+    let output = run_in(&["input.bin", "-o"], &[], Some(directory.path()));
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        fs::read(directory.path().join("input.bin.inv")).unwrap(),
+        [0xfe, 0xfd]
+    );
+}
+
+#[test]
+fn writes_stdin_to_relative_output_in_current_directory() {
+    let directory = tempfile::tempdir().unwrap();
+
+    let output = run_in(&["-o", "output.bin"], &[0x0f, 0xf0], Some(directory.path()));
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        fs::read(directory.path().join("output.bin")).unwrap(),
+        [0xf0, 0x0f]
     );
 }
 

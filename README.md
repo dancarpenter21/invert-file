@@ -41,17 +41,17 @@ By default, a file input is inverted to standard output. Redirect stdout when
 you want to keep the result.
 
 ```bash
-invert picture.png > picture.inv.png
-invert archive.bin > archive.inv.bin
+invert picture.png > picture.png.inv
+invert archive.bin > archive.bin.inv
 
 # Invert again to restore the original bytes.
-invert picture.inv.png > picture.png
+invert picture.png.inv > picture.png
 ```
 
 Use an explicit destination filename with `-o` / `--output`:
 
 ```bash
-invert picture.png -o picture.inv.png
+invert picture.png -o picture.png.inv
 invert picture.png --output /tmp/inverted-picture.bin
 ```
 
@@ -59,8 +59,8 @@ Parent directories for a named output are created when needed. `~` is expanded
 in input and output paths, including when it is quoted.
 
 ```bash
-invert ~/Downloads/report.pdf -o ~/Archive/report.inv.pdf
-invert '~/Downloads/report.pdf' --output '~/Archive/report.inv.pdf'
+invert ~/Downloads/report.pdf -o ~/Archive/report.pdf.inv
+invert '~/Downloads/report.pdf' --output '~/Archive/report.pdf.inv'
 ```
 
 For safety, the output path must differ from the input path:
@@ -71,13 +71,12 @@ invert report.pdf -o report.pdf
 ```
 
 Pass `-o` with no filename to create the conventional output name beside each
-input. The name is `<stem>.inv.<extension>`; extensionless files receive an
-`.inv` suffix.
+input. The name is `<filename>.inv`, so `.inv` is always the final suffix.
 
 ```bash
-invert picture.png -o          # picture.inv.png
+invert picture.png -o          # picture.png.inv
 invert LICENSE -o              # LICENSE.inv
-invert /data/photo.jpg --output # /data/photo.inv.jpg
+invert /data/photo.jpg --output # /data/photo.jpg.inv
 invert .env -o                 # .env.inv
 ```
 
@@ -93,9 +92,9 @@ invert one.bin two.bin -o output.bin
 The long form accepts the same three forms:
 
 ```bash
-invert input.bin --output output.inv.bin  # named file
+invert input.bin --output output.bin.inv  # named file
 invert input.bin --output -               # standard output
-invert input.bin --output                 # input.inv.bin
+invert input.bin --output                 # input.bin.inv
 ```
 
 ## Standard input and output
@@ -199,8 +198,8 @@ invert 'images/[ab]*.png' -o
 error, leaving standard output safe for binary data.
 
 ```bash
-invert image.png -o image.inv.png --verbose
-# inverted image.png -> image.inv.png
+invert image.png -o image.png.inv --verbose
+# inverted image.png -> image.png.inv
 
 producer | invert -o result.bin -v
 # inverted <stdin> -> result.bin
@@ -214,7 +213,7 @@ Because verbose output goes to standard error, it can be saved separately
 without corrupting binary output:
 
 ```bash
-invert input.bin -v > input.inv.bin 2> invert.log
+invert input.bin -v > input.bin.inv 2> invert.log
 ```
 
 ## Inspect file signatures
@@ -227,7 +226,7 @@ both ordinary and inverted files; unknown content is reported as
 invert mime photo.png
 # image/png
 
-invert mime photo.inv.png
+invert mime photo.png.inv
 # image/png
 
 invert mime unknown-data.bin
@@ -239,10 +238,10 @@ invert mime unknown-data.bin
 useful in shell conditionals.
 
 ```bash
-invert is photo.inv.png
+invert is photo.png.inv
 # true
 
-if invert is photo.inv.png; then
+if invert is photo.png.inv; then
   echo 'file appears to be inverted'
 fi
 

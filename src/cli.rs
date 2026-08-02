@@ -23,7 +23,7 @@ pub struct InvertArgs {
     #[arg(value_name = "INPUT", num_args = 0..)]
     pub inputs: Vec<PathBuf>,
 
-    /// Write output to a file. Use - for standard output; with no value, use the conventional .inv name.
+    /// Write output to a file. Use - for standard output; with no value, append .inv to the input filename.
     #[arg(
         short,
         long,
