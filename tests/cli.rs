@@ -130,6 +130,32 @@ fn writes_conventional_output_for_relative_input_in_current_directory() {
 }
 
 #[test]
+fn conventional_output_restores_the_name_without_an_inv_suffix() {
+    let directory = tempfile::tempdir().unwrap();
+    let original = directory.path().join("input.bin");
+    let inverted_path = directory.path().join("input.bin.inv");
+    let contents = [0x01, 0x02, 0x80, 0xff];
+    fs::write(&original, contents).unwrap();
+
+    let first = run_in(&["input.bin", "-o"], &[], Some(directory.path()));
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    assert_eq!(fs::read(&inverted_path).unwrap(), inverted(&contents));
+
+    let second = run_in(&["input.bin.inv", "-o"], &[], Some(directory.path()));
+    assert!(
+        second.status.success(),
+        "{}",
+        String::from_utf8_lossy(&second.stderr)
+    );
+    assert_eq!(fs::read(&original).unwrap(), contents);
+    assert!(!directory.path().join("input.bin.inv.inv").exists());
+}
+
+#[test]
 fn writes_stdin_to_relative_output_in_current_directory() {
     let directory = tempfile::tempdir().unwrap();
 

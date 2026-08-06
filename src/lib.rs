@@ -75,10 +75,18 @@ pub fn expand_inputs(inputs: &[PathBuf]) -> Result<Vec<PathBuf>, InvertError> {
     Ok(expanded)
 }
 
-/// Return the conventional `<filename>.inv` output path.
+/// Return the conventional output path, toggling the final `.inv` suffix.
+///
+/// Inverting a normally named file adds `.inv`; inverting a file whose name
+/// already ends in `.inv` removes that suffix because the resulting contents
+/// are no longer inverted.
 pub fn output_path(input: &Path) -> PathBuf {
     let name = input.file_name().unwrap_or_default().to_string_lossy();
-    let output_name = format!("{name}.inv");
+    let output_name = name
+        .strip_suffix(".inv")
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("{name}.inv"));
     input.with_file_name(output_name)
 }
 
@@ -195,10 +203,10 @@ fn expand_tilde(path: &Path) -> PathBuf {
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from(path));
     }
-    if let Some(remainder) = path.strip_prefix("~/") {
-        if let Some(home) = env::var_os("HOME") {
-            return PathBuf::from(home).join(remainder);
-        }
+    if let Some(remainder) = path.strip_prefix("~/")
+        && let Some(home) = env::var_os("HOME")
+    {
+        return PathBuf::from(home).join(remainder);
     }
     PathBuf::from(path)
 }
@@ -233,6 +241,14 @@ mod tests {
             PathBuf::from("LICENSE.inv")
         );
         assert_eq!(output_path(Path::new(".env")), PathBuf::from(".env.inv"));
+        assert_eq!(
+            output_path(Path::new("sample.bin.inv")),
+            PathBuf::from("sample.bin")
+        );
+        assert_eq!(
+            output_path(Path::new("sample.bin.inv.inv")),
+            PathBuf::from("sample.bin.inv")
+        );
     }
 
     #[test]

@@ -71,10 +71,12 @@ invert report.pdf -o report.pdf
 ```
 
 Pass `-o` with no filename to create the conventional output name beside each
-input. The name is `<filename>.inv`, so `.inv` is always the final suffix.
+input. Inverting a regular filename adds `.inv`; inverting that output again
+removes `.inv` because the restored file is no longer inverted.
 
 ```bash
 invert picture.png -o          # picture.png.inv
+invert picture.png.inv -o      # picture.png
 invert LICENSE -o              # LICENSE.inv
 invert /data/photo.jpg --output # /data/photo.jpg.inv
 invert .env -o                 # .env.inv

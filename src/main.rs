@@ -6,11 +6,11 @@ use std::process::ExitCode;
 
 use clap::{CommandFactory, Parser};
 use clap_complete::{Shell, generate};
+use invert::cli::{Cli, Command, CompletionCommand, CompletionShell, InvertArgs};
 use invert::{
     InversionState, expand_inputs, inversion_state, invert_file, invert_reader_to_file,
     invert_reader_to_writer, mime_from_file,
 };
-use invert::cli::{Cli, Command, CompletionCommand, CompletionShell, InvertArgs};
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
