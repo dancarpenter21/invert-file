@@ -22,8 +22,9 @@ invert completions install bash
 
 | Option or command | What it does |
 | --- | --- |
-| `INPUT` | A file to invert. Supply more than one to process them in order; use `-` for standard input. |
+| `INPUT` | A file to invert, or a directory with `-r`. Supply more than one to process them in order; use `-` for standard input outside recursive mode. |
 | `-o`, `--output [OUTPUT]` | Select an output destination. Its three forms are `-o FILE`, `-o -`, and bare `-o`. |
+| `-r`, `--recursive` | Recursively invert regular files to conventional sibling output paths. |
 | `-v`, `--verbose` | Write completed input-to-output mappings to standard error. |
 | `-h`, `--help` | Print help for the current command. |
 | `-V`, `--version` | Print the installed version. |
@@ -193,6 +194,35 @@ program's deterministic sorted order.
 invert 'chunk-?.bin' > joined.inv
 invert 'images/[ab]*.png' -o
 ```
+
+## Recursive inversion
+
+Use `-r` / `--recursive` to invert every regular file beneath one or more
+directory trees. Recursive mode writes each output beside its input using the
+same conventional naming as bare `-o`; adding `-o` is unnecessary and is
+rejected.
+
+```bash
+invert -r assets
+invert --recursive first-tree second-tree
+
+# assets/image.png     -> assets/image.png.inv
+# assets/data/file.bin -> assets/data/file.bin.inv
+```
+
+Hidden files are included. Symbolic links and special files are skipped, and
+directories are traversed in deterministic order. Direct file and glob inputs
+can be mixed with directories:
+
+```bash
+invert -r assets README.md 'examples/*'
+```
+
+The complete input set is checked before any output is written. If an output
+would also be an input—for example, if a tree contains both `file.bin` and
+`file.bin.inv`—the command exits without changing the tree. Recursive mode
+requires filesystem paths and cannot read standard input or write to standard
+output.
 
 ## Verbose mode
 

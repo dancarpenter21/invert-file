@@ -182,3 +182,143 @@ fn rejects_default_output_for_stdin() {
         b"error: --output without a value requires an input filename\n"
     );
 }
+
+#[test]
+fn recursively_writes_sibling_outputs_for_nested_and_hidden_files() {
+    let directory = tempfile::tempdir().unwrap();
+    let tree = directory.path().join("tree");
+    fs::create_dir_all(tree.join("nested")).unwrap();
+    fs::write(tree.join("root.bin"), [0x00, 0x55]).unwrap();
+    fs::write(tree.join("nested/.hidden"), [0xff, 0x0f]).unwrap();
+
+    let output = run_in(&["-r", "tree"], &[], Some(directory.path()));
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stdout.is_empty());
+    assert_eq!(fs::read(tree.join("root.bin.inv")).unwrap(), [0xff, 0xaa]);
+    assert_eq!(
+        fs::read(tree.join("nested/.hidden.inv")).unwrap(),
+        [0x00, 0xf0]
+    );
+    assert!(!tree.join("root.bin.inv.inv").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn recursive_mode_skips_symbolic_links() {
+    use std::os::unix::fs::symlink;
+    use std::os::unix::net::UnixListener;
+
+    let directory = tempfile::tempdir().unwrap();
+    let tree = directory.path().join("tree");
+    let linked_directory = directory.path().join("linked-directory");
+    fs::create_dir_all(&tree).unwrap();
+    fs::create_dir_all(&linked_directory).unwrap();
+    fs::write(tree.join("target.bin"), [0x01]).unwrap();
+    fs::write(linked_directory.join("outside.bin"), [0x02]).unwrap();
+    symlink("target.bin", tree.join("file-link")).unwrap();
+    symlink(&linked_directory, tree.join("directory-link")).unwrap();
+    let _socket = UnixListener::bind(tree.join("socket")).unwrap();
+
+    let output = run(&["-r", tree.to_str().unwrap()], &[]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(tree.join("target.bin.inv").exists());
+    assert!(!tree.join("file-link.inv").exists());
+    assert!(!tree.join("socket.inv").exists());
+    assert!(!linked_directory.join("outside.bin.inv").exists());
+}
+
+#[test]
+fn recursive_mode_deduplicates_overlapping_inputs() {
+    let directory = tempfile::tempdir().unwrap();
+    let tree = directory.path().join("tree");
+    fs::create_dir_all(&tree).unwrap();
+    fs::write(tree.join("file.bin"), [0x01]).unwrap();
+
+    let output = run_in(
+        &["-r", "-v", "tree", "tree/file.bin"],
+        &[],
+        Some(directory.path()),
+    );
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        "inverted tree/file.bin -> tree/file.bin.inv\n"
+    );
+}
+
+#[test]
+fn recursive_mode_rejects_input_output_collisions_before_writing() {
+    let directory = tempfile::tempdir().unwrap();
+    let tree = directory.path().join("tree");
+    fs::create_dir_all(&tree).unwrap();
+    let original = [0x01, 0x02];
+    let existing_output = [0x10, 0x20];
+    fs::write(tree.join("file.bin"), original).unwrap();
+    fs::write(tree.join("file.bin.inv"), existing_output).unwrap();
+
+    let output = run(&["--recursive", tree.to_str().unwrap()], &[]);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("recursive output is also a selected input")
+    );
+    assert_eq!(fs::read(tree.join("file.bin")).unwrap(), original);
+    assert_eq!(
+        fs::read(tree.join("file.bin.inv")).unwrap(),
+        existing_output
+    );
+}
+
+#[test]
+fn recursive_mode_rejects_output_options_and_standard_input() {
+    let directory = tempfile::tempdir().unwrap();
+    let tree = directory.path().join("tree");
+    fs::create_dir_all(&tree).unwrap();
+
+    for args in [
+        vec!["-r", "-o", tree.to_str().unwrap()],
+        vec!["-or", tree.to_str().unwrap()],
+        vec!["-ro", tree.to_str().unwrap()],
+    ] {
+        let output = run(&args, &[]);
+        assert_eq!(output.status.code(), Some(2), "arguments: {args:?}");
+    }
+
+    let output = run(&["-r", "-"], &[]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(
+        output.stderr,
+        b"error: --recursive cannot be used with standard input\n"
+    );
+
+    let output = run(&["-r"], &[]);
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(
+        output.stderr,
+        b"error: --recursive requires at least one input path\n"
+    );
+}
+
+#[test]
+fn recursive_mode_accepts_an_empty_directory() {
+    let directory = tempfile::tempdir().unwrap();
+    fs::create_dir(directory.path().join("empty")).unwrap();
+
+    let output = run_in(&["-r", "empty"], &[], Some(directory.path()));
+
+    assert!(output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty());
+}

@@ -1,16 +1,19 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH invert 1  "invert 0.1.0" 
+.TH invert 1  "invert 0.1.1"
 .SH NAME
 invert \- Invert file bytes and inspect inverted file signatures.
 .SH SYNOPSIS
-\fBinvert\fR [\fB\-o\fR|\fB\-\-output\fR] [\fB\-v\fR|\fB\-\-verbose\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fIINPUT\fR] [\fIsubcommands\fR]
+\fBinvert\fR [\fB\-o\fR|\fB\-\-output\fR] [\fB\-r\fR|\fB\-\-recursive\fR] [\fB\-v\fR|\fB\-\-verbose\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fIINPUT\fR] [\fIsubcommands\fR]
 .SH DESCRIPTION
 Invert file bytes and inspect inverted file signatures.
 .SH OPTIONS
 .TP
 \fB\-o\fR, \fB\-\-output\fR [\fI<OUTPUT>\fR]
 Write output to a file. Use \- for standard output; with no value, append .inv to the input filename
+.TP
+\fB\-r\fR, \fB\-\-recursive\fR
+Recursively invert regular files to conventional sibling output paths
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
 Print each input and output path
@@ -22,7 +25,7 @@ Print help
 Print version
 .TP
 [\fIINPUT\fR]
-Files to invert. If omitted, read from standard input. Use \- for standard input
+Files to invert, or directories with \-\-recursive. If omitted, read from standard input. Use \- for standard input
 .SH SUBCOMMANDS
 .TP
 invert\-mime(1)
@@ -37,4 +40,4 @@ Install shell completion support
 invert\-help(1)
 Print this message or the help of the given subcommand(s)
 .SH VERSION
-v0.1.0
+v0.1.1

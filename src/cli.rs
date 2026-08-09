@@ -19,7 +19,7 @@ pub struct Cli {
 
 #[derive(Debug, clap::Args)]
 pub struct InvertArgs {
-    /// Files to invert. If omitted, read from standard input. Use - for standard input.
+    /// Files to invert, or directories with --recursive. If omitted, read from standard input. Use - for standard input.
     #[arg(value_name = "INPUT", num_args = 0..)]
     pub inputs: Vec<PathBuf>,
 
@@ -32,6 +32,10 @@ pub struct InvertArgs {
         default_missing_value = "__invert_default_output__"
     )]
     pub output: Option<PathBuf>,
+
+    /// Recursively invert regular files to conventional sibling output paths.
+    #[arg(short, long, conflicts_with = "output")]
+    pub recursive: bool,
 
     /// Print each input and output path.
     #[arg(short, long)]

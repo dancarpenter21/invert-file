@@ -1,4 +1,5 @@
 use std::env;
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, File};
 use std::io::{self, BufReader};
 use std::path::{Path, PathBuf};
@@ -8,12 +9,17 @@ use clap::{CommandFactory, Parser};
 use clap_complete::{Shell, generate};
 use invert::cli::{Cli, Command, CompletionCommand, CompletionShell, InvertArgs};
 use invert::{
-    InversionState, expand_inputs, inversion_state, invert_file, invert_reader_to_file,
-    invert_reader_to_writer, mime_from_file,
+    InversionState, expand_inputs, expand_inputs_recursively, inversion_state, invert_file,
+    invert_reader_to_file, invert_reader_to_writer, mime_from_file, validate_conventional_outputs,
 };
 
 fn main() -> ExitCode {
-    let cli = Cli::parse();
+    let arguments = env::args_os().collect::<Vec<_>>();
+    if has_compact_recursive_output(&arguments) {
+        eprintln!("error: the argument '--recursive' cannot be used with '--output'");
+        return ExitCode::from(2);
+    }
+    let cli = Cli::parse_from(arguments);
     match cli.command {
         Some(Command::Mime { file }) => match mime_from_file(&file) {
             Ok(Some(mime)) => {
@@ -55,6 +61,10 @@ fn main() -> ExitCode {
 }
 
 fn run_inversion(args: InvertArgs) -> ExitCode {
+    if args.recursive {
+        return run_recursive_inversion(&args.inputs, args.verbose);
+    }
+
     let use_default_output = args
         .output
         .as_ref()
@@ -92,6 +102,45 @@ fn run_inversion(args: InvertArgs) -> ExitCode {
     }
 
     invert_to_stdout(&inputs, args.verbose)
+}
+
+fn run_recursive_inversion(inputs: &[PathBuf], verbose: bool) -> ExitCode {
+    if inputs.is_empty() {
+        eprintln!("error: --recursive requires at least one input path");
+        return ExitCode::from(2);
+    }
+    if inputs.iter().any(|input| is_stdin(input)) {
+        eprintln!("error: --recursive cannot be used with standard input");
+        return ExitCode::from(2);
+    }
+
+    let inputs = match expand_inputs_recursively(inputs) {
+        Ok(inputs) => inputs,
+        Err(error) => return fail(error, 1),
+    };
+    if let Err(error) = validate_conventional_outputs(&inputs) {
+        return fail(error, 1);
+    }
+    for input in &inputs {
+        let path = match invert_file(input, None) {
+            Ok(path) => path,
+            Err(error) => return fail(error, 1),
+        };
+        report_inversion(verbose, input, &path);
+    }
+    ExitCode::SUCCESS
+}
+
+fn has_compact_recursive_output(arguments: &[OsString]) -> bool {
+    for argument in arguments.iter().skip(1) {
+        if argument == OsStr::new("--") {
+            break;
+        }
+        if argument == OsStr::new("-or") || argument == OsStr::new("-ro") {
+            return true;
+        }
+    }
+    false
 }
 
 fn invert_to_named_output(input: Option<&PathBuf>, destination: &Path, verbose: bool) -> ExitCode {

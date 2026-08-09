@@ -2,6 +2,7 @@
 
 pub mod cli;
 
+use std::collections::HashSet;
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
@@ -32,6 +33,22 @@ pub enum InvertError {
     },
     #[error("output path must differ from the input path")]
     SamePath,
+    #[error("failed to inspect recursive input {}: {source}", path.display())]
+    InspectRecursiveInput {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("failed to read directory {}: {source}", path.display())]
+    ReadDirectory {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("recursive output is also a selected input: {}", .0.display())]
+    OutputIsInput(PathBuf),
+    #[error("multiple recursive inputs would write to the same output: {}", .0.display())]
+    DuplicateOutput(PathBuf),
     #[error(transparent)]
     Io(#[from] io::Error),
 }
@@ -73,6 +90,100 @@ pub fn expand_inputs(inputs: &[PathBuf]) -> Result<Vec<PathBuf>, InvertError> {
         expanded.extend(matches);
     }
     Ok(expanded)
+}
+
+/// Expand globs and recursively collect regular files in deterministic order.
+///
+/// Symbolic links and special files are skipped. Overlapping input roots are
+/// deduplicated by canonical path while preserving the first occurrence.
+pub fn expand_inputs_recursively(inputs: &[PathBuf]) -> Result<Vec<PathBuf>, InvertError> {
+    let roots = expand_inputs(inputs)?;
+    let mut files = Vec::new();
+    let mut seen = HashSet::new();
+
+    for root in roots {
+        collect_regular_files(&root, &mut files, &mut seen)?;
+    }
+    Ok(files)
+}
+
+/// Validate that conventional sibling outputs do not overlap selected inputs
+/// or one another.
+pub fn validate_conventional_outputs(inputs: &[PathBuf]) -> Result<(), InvertError> {
+    let mut selected = HashSet::new();
+    for input in inputs {
+        let canonical =
+            input
+                .canonicalize()
+                .map_err(|source| InvertError::InspectRecursiveInput {
+                    path: input.clone(),
+                    source,
+                })?;
+        selected.insert(canonical);
+    }
+
+    let mut outputs = HashSet::new();
+    for input in inputs {
+        let output = output_path(input);
+        let canonical = canonical_destination(&output)?;
+        if selected.contains(&canonical) {
+            return Err(InvertError::OutputIsInput(output));
+        }
+        if !outputs.insert(canonical) {
+            return Err(InvertError::DuplicateOutput(output));
+        }
+    }
+    Ok(())
+}
+
+fn collect_regular_files(
+    path: &Path,
+    files: &mut Vec<PathBuf>,
+    seen: &mut HashSet<PathBuf>,
+) -> Result<(), InvertError> {
+    let metadata =
+        fs::symlink_metadata(path).map_err(|source| InvertError::InspectRecursiveInput {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+    if metadata.is_file() {
+        let canonical =
+            path.canonicalize()
+                .map_err(|source| InvertError::InspectRecursiveInput {
+                    path: path.to_path_buf(),
+                    source,
+                })?;
+        if seen.insert(canonical) {
+            files.push(path.to_path_buf());
+        }
+        return Ok(());
+    }
+    if !metadata.is_dir() {
+        return Ok(());
+    }
+
+    let entries = fs::read_dir(path).map_err(|source| InvertError::ReadDirectory {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let mut children = entries
+        .map(|entry| {
+            entry
+                .map(|entry| entry.path())
+                .map_err(|source| InvertError::ReadDirectory {
+                    path: path.to_path_buf(),
+                    source,
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    children.sort();
+    for child in children {
+        collect_regular_files(&child, files, seen)?;
+    }
+    Ok(())
 }
 
 /// Return the conventional output path, toggling the final `.inv` suffix.
